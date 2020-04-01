@@ -117,7 +117,7 @@ distilled_network.load_state_dict(distilled_network_state_dict)
 
 correct = 0
 total = 0
-
+# %99.03
 with torch.no_grad():
     for data in test_loader:
         images, labels = data

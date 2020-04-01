@@ -66,6 +66,10 @@ class Net(nn.Module):
         return x
 
 
+network = Net().to(device) 
+optimizer = optim.SGD(network.parameters(), lr=learning_rate,
+                      momentum=momentum)
+network_path = 'initial_model.pth'
 
 def train(epoch):
   network.train()
@@ -95,7 +99,7 @@ network.load_state_dict(network_state_dict)
 
 correct = 0
 total = 0
-
+# %98.76
 with torch.no_grad():
     for data in test_loader:
         images, labels = data
@@ -106,6 +110,4 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-print('Accuracy of the network on the 10000 test images: %d %%' % (
-    100 * correct / total))
-
+print('Accuracy of the network on the 10000 test images: ', 100 * correct / total , '%' )
