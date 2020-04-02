@@ -1,5 +1,6 @@
 import torch
 import torchvision
+import torchvision.transforms as transforms
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -93,6 +94,24 @@ def carlini_l2_attack(model, images, labels, targeted=False, c=1e-4, kappa=0, ma
 
     return attack_images
 
+batch_size_train = 128
+batch_size_test = 1000
+learning_rate = 0.01
+
+transform = transforms.Compose(
+    [transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                        download=True, transform=transform)
+train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train,
+                                          shuffle=True, num_workers=2)
+
+testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                       download=True, transform=transform)
+test_loader = torch.utils.data.DataLoader(testset, batch_size= batch_size_test,
+                                         shuffle=False, num_workers=2)
+
 
 
 import random
@@ -105,13 +124,10 @@ loader = transforms.Compose([
 
     transforms.ToTensor(), # ToTensor : [0, 255] -> [0, 1]
 ])
-model = Net().to(device)
+network = Net().to(device)
 network_state_dict = torch.load('distilled_cifar_model.pth')
 # network_state_dict = torch.load('initial_cifar_model.pth')
-model.load_state_dict(network_state_dict)
-
-
-
+network.load_state_dict(network_state_dict)
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -119,24 +135,43 @@ classes = ('plane', 'car', 'bird', 'cat',
 from PIL import Image
 import matplotlib.pyplot as plt
 
-import cv2
-import numpy as np
-def image_loader(image_name):
-    """load image, returns cuda tensor"""
-    image = Image.open(image_name)
-    img_array  = np.asarray(image)
-    image = cv2.resize(img_array,(32,32))
-    # image = io.imread(image_name)
-    # image = Image.fromarray(image)
-    image = loader(image).float()
-    image = image.unsqueeze(0)  #this is for VGG, may not be needed for ResNet
-    image = image.to(device)
-    return image  #assumes that you're using GPU
+correct = 0
+total = 0
+# %76
+for data in test_loader:
+    images, labels = data
+    # print(images.shape)
+    images = images.to(device)
+    labels = (labels+1)%10
+    labels = labels.to(device)
+    images_new = carlini_l2_attack(network, images, labels , targeted = True, c = 10)
+    outputs = network(images_new)
+    _, predicted = torch.max(outputs.data, 1)
+    total += labels.size(0)
+    correct += (predicted == labels).sum().item()
+    print(total, correct)
+print('Accuracy of the network on the 10000 test images: ', 100 * correct / total , '%' )
 
-image = image_loader('bird.jpeg')
-print("originally image belongs to category : bird" ) 
-print('Trying to get ', classes[idx])
-image = carlini_l2_attack(model, image, torch.tensor([idx]).to(device) , targeted = True, c = 10)
-outputs = model(image)
-_, pre = torch.max(outputs.data, 1)
-print("label predicted for the image : ", classes[pre])
+
+# Accuracy of the network on the 10000 test images:  99.64 %
+# import cv2
+# import numpy as np
+# def image_loader(image_name):
+#     """load image, returns cuda tensor"""
+#     image = Image.open(image_name)
+#     img_array  = np.asarray(image)
+#     image = cv2.resize(img_array,(32,32))
+#     # image = io.imread(image_name)
+#     # image = Image.fromarray(image)
+#     image = loader(image).float()
+#     image = image.unsqueeze(0)  #this is for VGG, may not be needed for ResNet
+#     image = image.to(device)
+#     return image  #assumes that you're using GPU
+
+# image = image_loader('bird.jpeg')
+# print("originally image belongs to category : bird" ) 
+# print('Trying to get ', classes[idx])
+# image = carlini_l2_attack(model, image, torch.tensor([idx]).to(device) , targeted = True, c = 10)
+# outputs = model(image)
+# _, pre = torch.max(outputs.data, 1)
+# print("label predicted for the image : ", classes[pre])
