@@ -43,7 +43,7 @@ for data in test_loader:
     images = images.to(device)
     labels = (labels+1)%10
     labels = labels.to(device)
-    images_new = carlini_l2_attack(model, images, labels , targeted = True, c = 10)
+    images_new = carlini_l2_attack(network, images, labels , targeted = True, c = 10)
     outputs = network(images_new)
     _, predicted = torch.max(outputs.data, 1)
     total += labels.size(0)
